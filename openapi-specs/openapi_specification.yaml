@@ -1,0 +1,142 @@
+openapi: 3.0.2
+info:
+  title: Keyword Search Volume Proxy
+  version: 2.0.0
+  description:
+    Validates input and proxies to DataForSEO Google Ads Search Volume using
+    per-request Basic Auth.
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+
+x-amazon-apigateway-request-validators:
+  all:
+    validateRequestBody: true
+    validateRequestParameters: true
+  params-only:
+    validateRequestBody: false
+    validateRequestParameters: true
+x-amazon-apigateway-request-validator: params-only
+
+servers:
+  - url: https://pxhf8e0u71.execute-api.us-east-1.amazonaws.com/prod/
+
+
+paths:
+  /search-volume:
+    options:
+      summary: CORS preflight
+      operationId: searchVolumeOptions
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Origin: { schema: { type: string } }
+            Access-Control-Allow-Headers: { schema: { type: string } }
+            Access-Control-Allow-Methods: { schema: { type: string } }
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,POST'"
+
+    post:
+      summary: Create DataForSEO Search Volume task
+      operationId: searchVolume
+      x-amazon-apigateway-request-validator: all
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [keywords, location_code, language_code]
+              properties:
+                keywords:
+                  type: array
+                  items: { type: string }
+                  minItems: 1
+                location_code:
+                  type: integer
+                  example: 2840
+                language_code:
+                  type: string
+                  example: "en"
+                search_partners:
+                  type: boolean
+                date_from:
+                  type: string
+                  pattern: '^\d{4}-\d{2}-\d{2}$'
+                date_to:
+                  type: string
+                  pattern: '^\d{4}-\d{2}-\d{2}$'
+      responses:
+        "200": { description: DataForSEO response }
+        "400": { description: Validation error }
+        "401": { description: Missing or invalid Authorization header }
+        default: { description: Upstream/proxy error }
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: SearchVolumeHandler
+
+  /search-volume/{id}:
+    options:
+      summary: CORS preflight
+      operationId: searchVolumeId
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          headers:
+            Access-Control-Allow-Origin: { schema: { type: string } }
+            Access-Control-Allow-Headers: { schema: { type: string } }
+            Access-Control-Allow-Methods: { schema: { type: string } }
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: '{"statusCode": 200}'
+        responses:
+          default:
+            statusCode: "200"
+            responseParameters:
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,Authorization'"
+              method.response.header.Access-Control-Allow-Methods: "'OPTIONS,GET'"
+
+    get:
+      summary: Get DataForSEO Search Volume task by id
+      operationId: searchVolumeIdOption
+      x-amazon-apigateway-request-validator: params-only
+      security:
+        - basicAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: DataForSEO task id returned from task_post
+      responses:
+        "200": { description: DataForSEO task_get response }
+        "400": { description: Validation error }
+        "401": { description: Missing or invalid Authorization header }
+        default: { description: Upstream/proxy error }
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: SearchVolumeHandler

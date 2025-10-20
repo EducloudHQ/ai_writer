@@ -1,3 +1,4 @@
+
 import logging
 from typing import Any, Dict, List, Optional
 import json, os
@@ -295,33 +296,37 @@ with  mcp_client:
     # Discover MCP tools (e.g., your DataForSEO SERP/Keywords endpoints)
     mcp_tools = mcp_client.list_tools_sync()
 
-    # --- 1) Generate ~120 seed keywords from interests ---
+    # --- 1) Generate ~20 seed keywords from interests ---
     generate_keyword_agent = Agent(
         name="generate_keyword_agent",
-        description="Turns user interests into ~120 mid-tail keywords and normalized settings.",
+        description="Turns user interests into ~20 mid-tail keywords and normalized settings.",
         model=reasoning_model,
         system_prompt=(
-            "You convert a user's interests into ~120 high-quality, mid-tail keywords (2–4 words each). "
-            "Normalize settings too.\n\n"
-            "INPUT JSON SHAPE:\n"
+            "You convert a user's interests into ~20 high-quality, mid-tail keywords (2–4 words each). "
+            "Normalize settings too. Your input contains the original payload.\n\n"
+            "INPUT JSON SHAPE (from payload):\n"
             "{\n"
             '  "interests": [string],\n'
-            '  "language": "en",\n'
-            '  "location": "United States",\n'
-            '  "date_range": "1y"\n'
+            '  "language": "en", ...\n'
+            '  "author_details": {"author_id": "..."}\n'
             "}\n\n"
-            "OUTPUT JSON SHAPE (STRICT):\n"
+            "OUTPUT JSON SHAPE (for next agent):\n"
             "{\n"
             '  "language_code": "en",\n'
             '  "location_code": 2840,\n'
             '  "date_range": "2024-01-01..2024-12-31",\n'
-            '  "keywords": ["... up to ~120 ..."]\n'
+            '  "keywords": ["... up to ~20 ..."]\n'
             "}\n\n"
-            "- Use ISO date range or a relative 1y range resolved to YYYY-MM-DD..YYYY-MM-DD.\n"
-            "- language_code must be IETF (e.g., 'en').\n"
-            "- location_code should be a DataForSEO location code (e.g., 2840 for US). "
-            "If unknown, pick 2840 for United States.\n"
-            "- Return ONLY the JSON."
+            "TASK:\n"
+            "1. Generate the output JSON shape based on the input payload.\n"
+            "2. **Your FINAL action MUST be to call `use_agent`** to handoff to the next agent.\n"
+            "3. Call `use_agent` with:\n"
+            "   - agent_name='keywords_volume_agent'\n"
+            "   - message='Generated keywords, please fetch volumes.'\n"
+            "   - context: {\n"
+            "       \"keyword_settings\": <The JSON you just generated>,\n"
+            "       \"original_payload\": <The full original payload you received>\n"
+            "     }"
         ),
     )
 
@@ -335,34 +340,23 @@ with  mcp_client:
         model=reasoning_model,
         tools=all_tools,
         system_prompt=(
-        "1.Use the DataForSEO MCP keyword volume search tool to retrieve keyword search volume based on "
-        "keywords, language, location and time frame.\n"
-        "2. Create a structured JSON similar to this "
-        '''
-        "task_id": "task-123",
-        "results_count": 10,
-        "results": [
-            {"keyword": "Minimalist Living Tips", "volume": 320, "cpc": 0.31, "competition": "LOW"},
-            {"keyword": "Minimalist Home Organization", "volume": 90, "cpc": 0.13, "competition": "LOW"},
-            {"keyword": "Minimalist lifestyle benefits", "volume": 5400, "cpc": 0.18, "competition": "LOW"},
-            {"keyword": "Creative Writing Exercises", "volume": 880, "cpc": 7.27, "competition": "LOW"},
-            {"keyword": "Poetry Writing Prompts", "volume": 1300, "cpc": 10.17, "competition": "LOW"},
-            {"keyword": "AI Productivity Tools", "volume": 1000, "cpc": 15.41, "competition": "MEDIUM"},
-            # ... other keywords
-            {"keyword": "Stoic philosophy practices", "volume": 0, "cpc": 0, "competition": "NONE"},
-        '''
-        "3. Call `save_keyword_report_to_dynamodb`, passing the full `keyword_data` from step 2 and the `author_id`.\n"
-        "4. **Generate a human-readable markdown summary** of the keyword data (like the user's example: Key Observations, lists, etc.).\n"
-        "5. Your FINAL response MUST be a JSON object containing two keys:\n"
-        "   - 'summary': The human-readable markdown you generated.\n"
-        "   - 'report_id': The ID returned by the `save_keyword_report_to_dynamodb` tool.\n"
-        "\n"
-        "Example Final Response (DO NOT include markdown in the JSON, only in the 'summary' string):\n"
-        "{\n"
-        '  "summary": "### Keyword Analysis\\nI found that \\"Minimalist lifestyle benefits\\" has the highest volume...\\n\\n### Keywords with Volume:\\n1. **Minimalist Living Tips**: 320\\n...",\n'
-        '  "report_id": "abc-123-xyz-789"\n'
-        "}"
-
+            "Your INPUT is a JSON context from the previous agent(generate_keyword_agent). It contains 'keyword_settings' and 'original_payload'.\n\n"
+            "TASK:\n"
+            "1. Extract 'keywords', 'language_code', etc., from 'keyword_settings'.\n"
+            "2. Call the DataForSEO MCP keyword volume search tool to get metrics for the keywords.\n"
+            "3. Format the tool's raw output into the structured JSON report (e.g., {'task_id': ..., 'results': [...]}).\n"
+            "4. Extract 'author_id' from 'original_payload.author_details'. Default to 'anon' if missing.\n"
+            "5. Call `save_keyword_report_to_dynamodb` with the JSON report as `keyword_data` and the 'author_id'.\n"
+            "6. Generate a human-readable markdown 'summary' of the results.\n"
+            "7. **Your FINAL action MUST be to call `use_agent`** to handoff to the outline writer.\n"
+            "8. Call `use_agent` with:\n"
+            "   - agent_name='outline_writer_agent'\n"
+            "   - message='Keyword report is ready, please write outlines.'\n"
+            "   - context: {\n"
+            "       \"report_id\": <The ID from save_keyword_report_to_dynamodb tool call>,\n"
+            "       \"summary\": <Your markdown summary>,\n"
+            "       \"original_payload\": <The original_payload you received>\n"
+            "     }"
         ),
     )
 
@@ -373,16 +367,16 @@ with  mcp_client:
         model=outline_writer_model,
         tools=[save_articles_to_dynamodb,get_keyword_report_from_dynamodb],
         system_prompt=(
-            "You are an SEO content strategist. You write great titles and outlines.\n"
-            "INPUT: The user's request will contain a `report_id`.\n\n"
+            "You are an SEO content strategist. Your INPUT is a JSON context from the previous agent.\n"
+            "The input context contains 'report_id' and 'original_payload'.\n\n"
             "TASK:\n"
-            "1. **Your FIRST action MUST be to call `get_keyword_report_from_dynamodb`** using the `report_id` from the input.\n"
-            "2. Analyze the `keyword_data` retrieved from the tool (e.g., top-performing keywords).\n"
-            "3. Generate ~10 SEO-friendly article titles and concise outlines (H2s/H3s) based on that data.\n"
-            "4. Extract `author_id` from the original user payload if present, otherwise fallback to 'anon'.\n"
-            "5. **Your FINAL action MUST be to call `save_articles_to_dynamodb`** with the list of articles you generated. Include the relevant keywords in the 'keywords' field for each article.\n"
-            "6. Return ONLY the manifest (count, sample, ids) from the `save_articles_to_dynamodb` tool.\n"
-            "- NEVER paste the full outlines back into chat."
+            "1. Extract the `report_id` from your input context.\n"
+            "2. **Your FIRST action MUST be to call `get_keyword_report_from_dynamodb`** using this `report_id`.\n"
+            "3. Analyze the 'keyword_data' from the tool's response.\n"
+            "4. Generate ~10 SEO-friendly article titles and concise outlines (H2s/H3s) based on the data.\n"
+            "5. Extract `author_id` from 'original_payload.author_details'. Default to 'anon' if missing.\n"
+            "6. **Your FINAL action MUST be to call `save_articles_to_dynamodb`** with your generated articles and the 'author_id'.\n"
+            "7. Return ONLY the manifest (count, sample, ids) from the tool. This is the final output of the swarm."
         ),
     )
 
@@ -395,7 +389,7 @@ with  mcp_client:
             max_iterations=15
         )
     initial_payload: Dict[str, Any] = {
-            "interests": ["stoic thinking", "minimalism", "writing", "poetry", "medicine", "ai"],
+            "interests": ["agentic applications", "edtech", "knowledge bases", "poetry", "deep research", "ai"],
             "language": "English",
             "location": "United States",
             "date_range": "1y",

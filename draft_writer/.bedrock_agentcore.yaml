@@ -1,0 +1,41 @@
+default_agent: draft_writer_swarm
+agents:
+  draft_writer_swarm:
+    name: draft_writer_swarm
+    entrypoint: /Users/rosius/PycharmProjects/writing_agent/draft_writer/draft_writer_swarm.py
+    platform: linux/arm64
+    container_runtime: docker
+    source_path: null
+    aws:
+      execution_role: arn:aws:iam::132260253285:role/agentcore-draft_writer_swarm-role
+      execution_role_auto_create: false
+      account: '132260253285'
+      region: us-east-1
+      ecr_repository: 132260253285.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-draft_writer_swarm
+      ecr_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: true
+    bedrock_agentcore:
+      agent_id: draft_writer_swarm-XNb0N86jJe
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:132260253285:runtime/draft_writer_swarm-XNb0N86jJe
+      agent_session_id: null
+    codebuild:
+      project_name: bedrock-agentcore-draft_writer_swarm-builder
+      execution_role: arn:aws:iam::132260253285:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-23aaa0d0ab
+      source_bucket: bedrock-agentcore-codebuild-sources-132260253285-us-east-1
+    memory:
+      mode: STM_ONLY
+      memory_id: draft_writer_swarm_mem-kBERWqGspK
+      memory_arn: arn:aws:bedrock-agentcore:us-east-1:132260253285:memory/draft_writer_swarm_mem-kBERWqGspK
+      memory_name: draft_writer_swarm_mem
+      event_expiry_days: 30
+      first_invoke_memory_check_done: false
+      was_created_by_toolkit: false
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null

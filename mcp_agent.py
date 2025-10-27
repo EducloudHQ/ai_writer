@@ -36,7 +36,7 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
 ddb_table = dynamodb.Table(DDB_TABLE_NAME)
 
-
+app = BedrockAgentCoreApp()
 @tool
 def save_articles_to_dynamodb(
     articles: list[dict],
@@ -381,27 +381,36 @@ with  mcp_client:
     )
 
 
-    swarm_agent = Swarm(
+    @app.entrypoint
+    def invoke(payload):
 
-            nodes=[generate_keyword_agent,keywords_volume_agent,outline_writer_agent],
-            entry_point=generate_keyword_agent,
-            max_handoffs=10,
-            max_iterations=15
-        )
-    initial_payload: Dict[str, Any] = {
-            "interests": ["agentic applications", "edtech", "knowledge bases", "poetry", "deep research", "ai"],
-            "language": "English",
-            "location": "United States",
-            "date_range": "1y",
-            "author_details": {
-                "author_id": "6d2a9e9f-e1fb-43e0-b8b2-492d54e074e1"
+
+        swarm_agent = Swarm(
+
+                nodes=[generate_keyword_agent,keywords_volume_agent,outline_writer_agent],
+                entry_point=generate_keyword_agent,
+                max_handoffs=10,
+                max_iterations=15
+            )
+        initial_payload: Dict[str, Any] = {
+                "interests": ["agentic applications", "edtech", "knowledge bases", "poetry", "deep research", "ai"],
+                "language": "English",
+                "location": "United States",
+                "date_range": "1y",
+                "author_details": {
+                    "author_id": "6d2a9e9f-e1fb-43e0-b8b2-492d54e074e1"
+                }
+
             }
 
-        }
+        response = swarm_agent(
+                "Generate keyword strategy and outlines using this payload. "
+                "Return STRICT JSON at every step.\n" + json.dumps(initial_payload)
+            )
+        return response
 
-    response = swarm_agent(
-            "Generate keyword strategy and outlines using this payload. "
-            "Return STRICT JSON at every step.\n" + json.dumps(initial_payload)
-        )
+    if __name__ == "__main__":
+        app.run()
 
-    print(response)
+
+

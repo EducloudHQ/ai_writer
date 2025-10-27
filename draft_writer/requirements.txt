@@ -1,0 +1,8 @@
+strands-agents>=1.13.0
+strands-agents-tools>=0.2.12
+uv
+boto3
+tavily-python
+bedrock-agentcore
+bedrock-agentcore-starter-toolkit
+pydantic>=2.7

@@ -7,24 +7,17 @@ import logging
 from typing import Any
 from datetime import datetime, timezone
 
-# --- Strands & AWS Imports ---
+
 import boto3
 from botocore.exceptions import ClientError
 from bedrock_agentcore import BedrockAgentCoreApp
 from strands import Agent, tool
 from strands.models import BedrockModel
 
-# NEW: Import Graph for workflow
 from strands.multiagent import GraphBuilder
 
-# --- Tool Imports ---
 from strands_tools import memory, use_agent
 from strands_tools.tavily import tavily_search, tavily_extract
-
-# REMOVED: from strands_tools.use_agent import use_agent (no longer needed)
-# REMOVED: from strands.multiagent import Swarm (no longer needed)
-
-# ---------- ENV ----------
 DDB_TABLE_NAME = os.getenv("DDB_TABLE_NAME", "ai-writer-table")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 
@@ -44,7 +37,6 @@ app = BedrockAgentCoreApp()
 
 retriever_model = BedrockModel(model_id="us.amazon.nova-pro-v1:0",
                                region_name='us-east-1',
-
                                top_p=1,
                                temperature=0.2)
 
@@ -53,7 +45,7 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
-# ---------- Tools (Unchanged) ----------
+
 @tool
 def save_draft_to_dynamodb(
         title: str,
@@ -98,9 +90,7 @@ def save_draft_to_dynamodb(
         return {"error": f"DynamoDB put failed: {e.response['Error']['Message']}"}
 
 
-# REMOVED: handoff_for_writing_draft tool is no longer needed
 
-# ---------- Agents (with Simplified Prompts) ----------
 
 research_agent = Agent(
     name="research_agent",
@@ -116,7 +106,7 @@ research_agent = Agent(
         "3) Return STRICT JSON: { 'brief': { 'key_points':[], 'stats':[], 'sources':[] } }.\n"
         "RULES:\n"
         "- Keep key_points <= 10; use authoritative sources.\n"
-        # REMOVED: All "AFTER YOU RETURN..." handoff instructions
+
     ),
 )
 
@@ -180,14 +170,6 @@ draft_writer_agent = Agent(
 )
 
 
-# ---------- NEW: Graph Node Functions ----------
-# These functions wrap agent calls and manage the state dictionary.
-# The 'payload' argument is the current state of the workflow.
-# They return a dictionary of keys/values to update the state with.
-
-
-
-# ---------- NEW: Define the Workflow Graph ----------
 workflow =  GraphBuilder()
 
 # 1. Add nodes
@@ -225,7 +207,7 @@ def invoke(payload):
     """
     logging.info(f"Starting workflow with payload: {payload}")
 
-    # REMOVED: Swarm definition and invocation
+
 
     try:
 

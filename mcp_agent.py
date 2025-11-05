@@ -189,79 +189,7 @@ def now_iso():
 
 
 
-'''@tool
-async def dfseo_fetch_volumes(
-        language_code: str,
-        location_code: int,
-        date_range: str,
-        keywords: List[str],
-        author_id: str = "anon",
-        batch_size: int = 80,
-        concurrency: int = 2,
-        per_call_timeout: float = 30.0,
-) -> Dict[str, Any]:
-    """
-    Fetches keyword metrics (via DataForSEO MCP or your internal logic),
-    stores the FULL payload to S3, writes a tiny manifest to DynamoDB,
-    and returns that manifest (safe for the model context).
 
-    DynamoDB item (single-table):
-      PK = USER#{author_id}
-      SK = METRICS#{job_id}
-
-    S3 object:
-      s3://{S3_BUCKET}/metrics/{author_id}/{job_id}.json
-    """
-    # 1) (Placeholder) fetch metrics in batches; fill all_metrics with rows like:
-    #    {"keyword": "...", "avg_monthly_searches": 5400, "cpc": 1.25, "competition": 0.37, "serp_features": [...]}
-    #    Integrate your MCP tool calls / DataForSEO jobs here.
-    all_metrics: List[Dict[str, Any]] = []  # <-- populate me
-
-    # 2) Write to S3 (entire blob)
-    job_id = str(uuid.uuid4())
-    s3_key = f"metrics/{author_id}/{job_id}.json"
-    body = {
-        "language_code": language_code,
-        "location_code": location_code,
-        "date_range": date_range,
-        "metrics": all_metrics,
-        "createdAt": now_iso()
-    }
-    s3.put_object(Bucket=S3_BUCKET, Key=s3_key, Body=json.dumps(body).encode("utf-8"), ContentType="application/json")
-    s3_uri = f"s3://{S3_BUCKET}/{s3_key}"
-
-    # 3) Write tiny manifest to DynamoDB
-    sample = all_metrics[:5] if all_metrics else []
-    item = {
-        "PK": f"USER#{author_id}",
-        "SK": f"METRICS#{job_id}",
-        "entityType": "METRICS_MANIFEST",
-        "authorId": author_id,
-        "jobId": job_id,
-        "s3Uri": s3_uri,
-        "languageCode": language_code,
-        "locationCode": location_code,
-        "dateRange": date_range,
-        "totalCount": len(all_metrics),
-        "sample": sample,
-        "createdAt": now_iso(),
-        "updatedAt": now_iso(),
-    }
-    ddb_table.put_item(Item=item)
-
-    # 4) Return tiny manifest for downstream agents
-    return {
-        "manifest": {
-            "table": DDB_TABLE_NAME,
-            "pk": item["PK"],
-            "sk": item["SK"],
-            "s3_uri": s3_uri,
-            "total_count": len(all_metrics),
-            "sample": sample,
-        }
-    }
-
-'''
 reasoning_model = BedrockModel(
     model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0",
     temperature=0.5,
